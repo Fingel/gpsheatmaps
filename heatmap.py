@@ -34,25 +34,27 @@ def create_image(data, image_width, image_height, alpha_mode=False, spot_radius=
             for i in xrange(len(datum)):
                 pixel_map = draw_bilinear_gradient(pixel_map, datum[i], datum[i + 1], spot_radius, dimming)
 
+    gradient = create_gradient()
+    gradient_size = len(gradient)
+
+    # Traverse the image, get value of pixel and assign the the color
+    # from the corresponding index in the gradient array
+    for x in xrange(image_width):
+        for y in xrange(image_height):
+            value = pixel_map[x, y][0]  # greyscale so just get red
+            if value == 255:
+                pixel_map[x, y] = (255, 255, 255, 0)
+            elif value < gradient_size:
+                pixel_map[x, y] = gradient[value]
+
     if spot_radius >= 30:
         image = image.filter(ImageFilter.BLUR)
 
-    gradient = create_gradient(image, alpha_mode)
-    gradient_size = len(gradient)
-
-    for x in xrange(image_width):
-        for y in xrange(image_height):
-            level = pixel_map[x, y][3]  # & 0xFF
-            if level >= 0 and level < gradient_size:
-                pixel_map[x, y][3] = gradient[level]
-
-    # might need to make some stuff transparent here
     image.save('/home/austin/heat.png')
     return image
 
 
 def draw_circular_gradient(pixel_map, center_x, center_y, spot_radius, dimming):
-    # set_trace()
     dirty = {}
     ratio = (255 - dimming) / spot_radius
     for r in xrange(spot_radius, 0, -1):
@@ -96,7 +98,7 @@ def draw_bilinear_gradient(pixel_map, point0, point1, spot_radius, dimming):
         x0, x1 = x1, x0
         y0, y1 = y1, y0
 
-    deltax = x1 = x0
+    deltax = x1 - x0
     deltay = math.abs(y1 - y0)
     error = deltax / 2
     y = y0
@@ -119,17 +121,17 @@ def draw_bilinear_gradient(pixel_map, point0, point1, spot_radius, dimming):
     return pixel_map
 
 
-def create_gradient(pixel_map, mode):
-    image = Image.open("gradient.png")
+def create_gradient(gradient_f="gradient.png"):
+    """
+    Open an image of a gradient and pick out
+    its colors along the x axis. Return them as
+    an array
+    """
+    image = Image.open(gradient_f)
     gradient = image.load()
     width_g, height_g = image.size
     grad_rgba = []
-    for y in reversed(xrange(height_g - 1)):
-        r, g, b, a = gradient[1, y]
-        alpha = min(127, max(0, math.floor(127 - y / 2)))
-        if mode == WITH_ALPHA:
-            grad_rgba.append((r, g, b, alpha))
-        else:
-            grad_rgba.append((r, g, b))
-
+    for x in xrange(width_g - 1, 0, -1):
+        r, g, b, a = gradient[x, 1]
+        grad_rgba.append((r, g, b, a))
     return grad_rgba
