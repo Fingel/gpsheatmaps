@@ -5,7 +5,6 @@ import time
 from heatmap import create_image
 
 app = Flask(__name__)
-app.config.from_object('local_settings')
 
 
 @app.route('/')
