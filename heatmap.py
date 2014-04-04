@@ -10,16 +10,12 @@ MAX_RADIUS = 50  # in px
 MAX_IMAGE_SIZE = 10000  # in px
 
 
-class HeatMapPoint:
-
-    def __init__(self, x, y):
-        self.x, self.y = x, y
-
-    def __repr__(self):
-        return 'HeatMapPoint(x=%s, y=%s)' % (self.x, self.y)
-
-
-def create_image(data, image_width, image_height, alpha_mode=False, spot_radius=30, dimming=75):
+def create_image(data, image_width, image_height, spot_radius=20, dimming=75):
+    """
+    Create a heatmapped image from data.
+    Parameters:
+    data: Array of Array of tuples (lat, lng)
+    """
     image_width = min(MAX_IMAGE_SIZE, max(0, int(image_width)))
     image_height = min(MAX_IMAGE_SIZE, max(0, int(image_height)))
     spot_radius = min(MAX_RADIUS, max(MIN_RADIUS, int(spot_radius)))
@@ -29,10 +25,10 @@ def create_image(data, image_width, image_height, alpha_mode=False, spot_radius=
     pixel_map = image.load()
     for datum in data:
         if len(datum) == 1:
-            pixel_map = draw_circular_gradient(pixel_map, datum[0].x, datum[0].y, spot_radius, dimming)
+            pixel_map = draw_circular_gradient(pixel_map, datum[0][0], datum[0][1], image_width, image_height, spot_radius, dimming)
         else:
-            for i in xrange(len(datum)):
-                pixel_map = draw_bilinear_gradient(pixel_map, datum[i], datum[i + 1], spot_radius, dimming)
+            for i in xrange(0, len(datum) - 1):
+                pixel_map = draw_bilinear_gradient(pixel_map, datum[i], datum[i + 1], image_width, image_height, spot_radius, dimming)
 
     gradient = create_gradient()
     gradient_size = len(gradient)
@@ -43,26 +39,25 @@ def create_image(data, image_width, image_height, alpha_mode=False, spot_radius=
         for y in xrange(image_height):
             value = pixel_map[x, y][0]  # greyscale so just get red
             if value == 255:
-                pixel_map[x, y] = (255, 255, 255, 0)
+                pixel_map[x, y] = (255, 255, 255, 0) # make white transparent
             elif value < gradient_size:
                 pixel_map[x, y] = gradient[value]
 
     if spot_radius >= 30:
         image = image.filter(ImageFilter.BLUR)
 
-    image.save('/home/austin/heat.png')
     return image
 
 
-def draw_circular_gradient(pixel_map, center_x, center_y, spot_radius, dimming):
+def draw_circular_gradient(pixel_map, center_x, center_y, image_width, image_height, spot_radius, dimming):
     dirty = {}
     ratio = (255 - dimming) / spot_radius
     for r in xrange(spot_radius, 0, -1):
         channel = dimming + r * ratio
         angle_step = 0.45 / r
         for angle in arange(0, math.pi * 2, angle_step):
-            x = int(math.floor(center_x + r * math.cos(angle)))
-            y = int(math.floor(center_y + r * math.sin(angle)))
+            x = max(0, min(image_width - 1, int(math.floor(center_x + r * math.cos(angle)))))
+            y = max(0, min(image_height - 1 , int(math.floor(center_y + r * math.sin(angle)))))
             try:
                 _ = dirty[(x, y)]
             except KeyError:
@@ -75,22 +70,22 @@ def draw_circular_gradient(pixel_map, center_x, center_y, spot_radius, dimming):
     return pixel_map
 
 
-def draw_bilinear_gradient(pixel_map, point0, point1, spot_radius, dimming):
-    if point0.x < point1.x:
-        x0 = point0.x
-        y0 = point0.y
-        x1 = point1.x
-        y1 = point1.y
+def draw_bilinear_gradient(pixel_map, point0, point1, image_width, image_height, spot_radius, dimming):
+    if point0[0] < point1[0]:
+        x0 = point0[0]
+        y0 = point0[1]
+        x1 = point1[0]
+        y1 = point1[1]
     else:
-        x0 = point1.x
-        y0 = point1.y
-        x1 = point0.x
-        y1 = point0.y
+        x0 = point1[0]
+        y0 = point1[1]
+        x1 = point0[0]
+        y1 = point0[1]
 
     if x0 == x1 and y0 == y1:
         return False
 
-    steep = True if math.abs(y1 - y0) > math.abs(x1 - x0) else False
+    steep = True if abs(y1 - y0) > abs(x1 - x0) else False
     if steep:
         x0, y0 = y0, x0  # swap
         x1, y1, = y1, x1
@@ -99,7 +94,7 @@ def draw_bilinear_gradient(pixel_map, point0, point1, spot_radius, dimming):
         y0, y1 = y1, y0
 
     deltax = x1 - x0
-    deltay = math.abs(y1 - y0)
+    deltay = abs(y1 - y0)
     error = deltax / 2
     y = y0
     if y0 < y1:
@@ -110,9 +105,9 @@ def draw_bilinear_gradient(pixel_map, point0, point1, spot_radius, dimming):
     for x in xrange(x0, x1, 1):
         if ((x - x0) % step) == 0:
             if(steep):
-                pixel_map = draw_circular_gradient(pixel_map, y, x, spot_radius, dimming)
+                pixel_map = draw_circular_gradient(pixel_map, y, x, image_width, image_height, spot_radius, dimming)
             else:
-                pixel_map = draw_circular_gradient(pixel_map, x, y, spot_radius, dimming)
+                pixel_map = draw_circular_gradient(pixel_map, x, y, image_width, image_height, spot_radius, dimming)
         error -= deltay
         if(error < 0):
             y = y + ystep
