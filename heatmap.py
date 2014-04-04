@@ -1,7 +1,6 @@
 from PIL import Image, ImageFilter
 from numpy import arange
 import math
-from pudb import set_trace
 
 WITH_ALPHA = False
 WITH_TRANSPARENCY = True
