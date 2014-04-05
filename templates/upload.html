@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Upload{% endblock %}
+
+{% block content %}
+<div class="row">
+    <form method="POST" action="/upload" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="fileinput">File input</label>
+            <input type="file" id="fileinput" name="file">
+            <p class="help-block">.zip file containing .gpx files</p>
+        </div>
+        <button type="submit" class="btn btn-primary">Upload</button>
+    </form>
+</div>
+{% endblock %}

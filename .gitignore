@@ -54,3 +54,5 @@ docs/_build/
 
 reference/
 local_settings.py
+uploads/
+*.gpx
